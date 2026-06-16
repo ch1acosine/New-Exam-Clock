@@ -1,0 +1,6 @@
+{
+  "name": "Exam Proctor Clock",
+  "description": "A fully client-side, highly legible, projection-friendly exam supervision clock with real-time clock, flexible presets, and a hidden teacher control panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
