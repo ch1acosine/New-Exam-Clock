@@ -27,6 +27,8 @@ export default function App() {
   const [screen, setScreen] = useState<'setup' | 'clock'>('setup');
 
   // Core Exam Info State
+  const [examName, setExamName] = useState<string>('期中考');
+  const [examPreset, setExamPreset] = useState<string>('期中考'); // Presets: '第一次期中考', '第二次期中考', '期中考', '期末考', '自行設定'
   const [subject, setSubject] = useState<string>('大氣動力學二');
   const [startTime, setStartTime] = useState<string>('08:10');
   const [endTime, setEndTime] = useState<string>('10:00');
@@ -347,6 +349,49 @@ export default function App() {
             {/* Form Fields */}
             <div className="space-y-6">
               
+              {/* Exam Name Select Presets */}
+              <div id="field_exam_name_presets" className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-zinc-500 block">
+                  📝 設定考試名稱
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+                  {['第一次期中考', '第二次期中考', '期中考', '期末考', '自行設定'].map((preset) => (
+                    <button
+                      id={`exam_preset_btn_${preset}`}
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setExamPreset(preset);
+                        if (preset !== '自行設定') {
+                          setExamName(preset);
+                        }
+                        playChime(600, 'sine', 0.05);
+                      }}
+                      className={`px-2 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                        examPreset === preset
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-zinc-850 hover:bg-zinc-800 border-white/5 text-zinc-400'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Always-editable Exam Name text input field */}
+                <input
+                  id="input_exam_name"
+                  type="text"
+                  value={examName}
+                  onChange={(e) => {
+                    setExamName(e.target.value);
+                    setExamPreset('自行設定'); // switch to custom automatically if they type
+                  }}
+                  className="w-full bg-zinc-800 border-none rounded-xl p-4 text-lg outline-none focus:ring-2 focus:ring-blue-500/80 transition-all text-white placeholder-zinc-600"
+                  placeholder="請輸入或選擇考試名稱"
+                />
+              </div>
+
               {/* Subject Input */}
               <div id="field_subject" className="space-y-2 flex flex-col">
                 <label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
@@ -357,7 +402,7 @@ export default function App() {
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="bg-zinc-800 border-none rounded-xl p-4 text-xl outline-none focus:ring-2 focus:ring-blue-500/80 transition-all text-white placeholder-zinc-600"
+                  className="bg-zinc-800 border-none rounded-xl p-4 text-lg outline-none focus:ring-2 focus:ring-blue-500/80 transition-all text-white placeholder-zinc-600"
                   placeholder="請輸入科目名稱，例如：大氣動力學二"
                 />
               </div>
@@ -390,24 +435,32 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Quick Time Presets helper */}
-              <div id="field_time_presets" className="space-y-2.5">
-                <span className="block text-xs font-bold uppercase tracking-widest text-zinc-600">
-                  ⚡ 快速設定考試長度 (依目前時間自動產生 start / end)
+              {/* Dynamic calculated duration display */}
+              <div className="bg-zinc-900 border border-white/5 rounded-2xl p-4.5 flex items-center justify-between font-mono text-sm text-zinc-300">
+                <span className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  自動估算之考試總長度：
                 </span>
-                <div className="flex flex-wrap gap-2.5">
-                  {[50, 80, 100, 110, 120].map((mins) => (
-                    <button
-                      id={`preset_btn_${mins}`}
-                      key={mins}
-                      type="button"
-                      onClick={() => applyPresetTime(mins)}
-                      className="px-4 py-2 text-xs font-bold rounded-xl bg-zinc-800 hover:bg-zinc-700 hover:text-white border border-white/5 text-zinc-300 transition-all active:scale-95"
-                    >
-                      {mins} 分鐘
-                    </button>
-                  ))}
-                </div>
+                <span className="text-lg font-black text-blue-400">
+                  {(() => {
+                    try {
+                      const [startH, startM] = startTime.split(':').map(Number);
+                      const [endH, endM] = endTime.split(':').map(Number);
+                      if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return '請設定時間';
+                      const sObj = new Date();
+                      sObj.setHours(startH, startM, 0, 0);
+                      const eObj = new Date();
+                      eObj.setHours(endH, endM, 0, 0);
+                      if (eObj.getTime() < sObj.getTime()) {
+                        eObj.setDate(eObj.getDate() + 1);
+                      }
+                      const mins = Math.round((eObj.getTime() - sObj.getTime()) / 60000);
+                      return `${mins} 分鐘`;
+                    } catch {
+                      return '計算中...';
+                    }
+                  })()}
+                </span>
               </div>
 
               {/* Attendance Configuration Block */}
@@ -487,17 +540,12 @@ export default function App() {
         </div>
       )}
 
-
-
-
-
-
       {/* GIANT PROCTOR SUPERVISION SCREEN */}
       {screen === 'clock' && (
-        <div id="clock_view" className="flex flex-col min-h-screen relative p-4 md:p-8 lg:p-10">
+        <div id="clock_view" className="h-screen overflow-hidden flex flex-col justify-between p-4 sm:p-5 bg-[#050505] text-[#f8fafc] transition-all duration-300 select-none">
           
-          {/* Subtle upper utility strip */}
-          <div id="top_strip_control" className="flex items-center justify-between border-b border-gray-800/10 dark:border-white/5 pb-4 mb-4 w-full">
+          {/* Subtle upper utility strip (Very Compact) */}
+          <div id="top_strip_control" className="flex items-center justify-between border-b border-zinc-800/20 dark:border-white/5 pb-2.5 w-full shrink-0">
             <button
               id="back_to_setup_btn"
               onClick={() => {
@@ -505,20 +553,19 @@ export default function App() {
                   setScreen('setup');
                 }
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm transition-all font-medium border cursor-pointer ${
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-sm transition-all font-bold border cursor-pointer ${
                 theme === 'dark'
-                  ? 'bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white border-white/5'
-                  : 'bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 border-zinc-200 shadow-xs'
+                  ? 'bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 hover:text-white border-white/5'
+                  : 'bg-white hover:bg-zinc-100 text-zinc-700 hover:text-zinc-900 border-zinc-300 shadow-sm'
               }`}
             >
               <ArrowLeft className="w-4 h-4" />
               <span>重新設定</span>
             </button>
 
-            {/* Meta indicator block strictly formatted, helpful but quiet */}
-            <div className="hidden sm:flex items-center space-x-2 text-xs font-mono text-zinc-500">
-              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-              <span>監考中 • 100% 離線運作</span>
+            {/* Title / Current Exam Preset Center Block */}
+            <div className={`font-sans font-black text-base sm:text-lg tracking-wider ${theme === 'dark' ? 'text-white' : 'text-zinc-950'}`}>
+              {examName}
             </div>
 
             {/* Quick config triggers */}
@@ -530,7 +577,7 @@ export default function App() {
                   setIsSoundEnabled(!isSoundEnabled);
                   playChime(600, 'sine', 0.1);
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   isSoundEnabled 
                     ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10' 
                     : 'border-zinc-800 text-zinc-500 bg-zinc-900/10 hover:bg-zinc-900/25'
@@ -547,10 +594,10 @@ export default function App() {
                   setTheme(theme === 'dark' ? 'light' : 'dark');
                   playChime(theme === 'dark' ? 880 : 440, 'sine', 0.05);
                 }}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   theme === 'dark' 
                     ? 'border-amber-500/30 text-amber-500 bg-amber-500/5 hover:bg-amber-500/10' 
-                    : 'border-indigo-500/30 text-indigo-500 bg-indigo-500/5 hover:bg-indigo-500/10'
+                    : 'border-indigo-500/30 text-indigo-600 bg-indigo-500/5 hover:bg-indigo-500/10'
                 }`}
                 title={theme === 'dark' ? "高對比白色背景" : "暗黑投影背景"}
               >
@@ -561,10 +608,10 @@ export default function App() {
               <button
                 id="fullscreen_toggle_btn"
                 onClick={toggleFullscreen}
-                className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`p-2 rounded-xl border transition-all cursor-pointer ${
                   theme === 'dark'
                     ? 'border-zinc-800 text-zinc-400 hover:text-white bg-zinc-900/40 hover:bg-zinc-900'
-                    : 'border-zinc-200 text-zinc-600 hover:text-zinc-900 bg-white hover:bg-zinc-100'
+                    : 'border-zinc-300 text-zinc-700 hover:text-zinc-900 bg-white hover:bg-zinc-150'
                 }`}
                 title="全螢幕模式"
               >
@@ -573,14 +620,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* DYNAMIC EMERGENCY BANNER BANNER */}
+          {/* DYNAMIC EMERGENCY BANNER */}
           {customBanner && (
             <div 
               id="critical_alert_bar" 
-              className="mb-6 bg-red-650 text-white font-bold py-4 px-6 rounded-2xl flex items-center justify-between shadow-lg"
+              className="my-2 bg-red-650 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-between shadow-lg shrink-0"
             >
-              <div className="flex items-center space-x-3 text-lg md:text-xl">
-                <AlertTriangle className="w-6 h-6 animate-pulse shrink-0" />
+              <div className="flex items-center space-x-3 text-base md:text-lg">
+                <AlertTriangle className="w-5 h-5 animate-pulse shrink-0" />
                 <span>{customBanner}</span>
               </div>
               <button 
@@ -589,46 +636,18 @@ export default function App() {
                 className="p-1 hover:bg-red-750 rounded-full transition-all text-white/95 cursor-pointer"
                 title="清除提示"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {/* BENTO BLOCK 1: SUBJECT & TIME HEADER */}
-          <div 
-            id="info_box_subject_header"
-            className={`rounded-[2rem] p-6 sm:p-8 border mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all duration-300 ${
-              theme === 'dark' 
-                ? 'bg-[#111111] border-white/5 text-white' 
-                : 'bg-white border-zinc-200/80 text-zinc-900 shadow-sm'
-            }`}
-          >
-            <div className="flex flex-col">
-              <span className="text-zinc-500 font-bold uppercase tracking-widest text-xs sm:text-sm mb-1.5">
-                EXAMINATION SUBJECT • 考試科目
-              </span>
-              <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
-                {subject}
-              </h2>
-            </div>
-            
-            <div className="text-left md:text-right flex flex-col shrink-0">
-              <span className="text-zinc-500 font-bold uppercase tracking-widest text-xs sm:text-sm mb-1.5">
-                EXAM PERIOD • 考試時程
-              </span>
-              <div className="text-xl sm:text-3xl font-mono font-black tracking-tight text-blue-500 dark:text-blue-400">
-                {startTime} <span className="text-zinc-500 text-sm sm:text-base font-normal mx-1">至</span> {endTime}
-              </div>
-            </div>
-          </div>
-
-          {/* BENTO BLOCK 2: CENTRAL MASSIVE CLOCK MODULE */}
+          {/* GIANT CENTRAL CLOCK VIEW - Maximized layout */}
           <div 
             id="bento_main_clock_module"
-            className={`flex-grow rounded-[3.5rem] border p-8 md:p-12 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 min-h-[340px] mb-6 ${
+            className={`flex-grow rounded-[2rem] border p-6 md:p-8 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 my-3.5 min-h-0 ${
               theme === 'dark' 
                 ? 'bg-[#111111] border-white/5 text-white' 
-                : 'bg-white border-zinc-200 shadow-sm text-zinc-900'
+                : 'bg-white border-zinc-250 shadow-sm text-zinc-950'
             }`}
           >
             <div className={`absolute inset-0 bg-gradient-to-t pointer-events-none ${
@@ -638,155 +657,167 @@ export default function App() {
                   ? 'from-blue-500/5' 
                   : 'from-zinc-100/30'
             } to-transparent`}></div>
-            
-            {/* Upper label */}
-            <span className="text-zinc-500 font-bold uppercase tracking-widest text-xs sm:text-sm mb-4 relative z-10 block">
-              🕒 中華民國標準時間 (CURRENT TIME)
-            </span>
 
-            {/* Giant clock readout */}
+            {/* Clock read-out - EXTREMELY ENLARGED, NO PULSING COLON, UNIFORM COLOR */}
             <div 
               id="current_time_readout" 
-              className="text-[14vw] sm:text-[13vw] font-black tracking-tighter tabular-nums leading-none flex items-center justify-center relative z-10 cursor-pointer"
+              className="text-[15vw] sm:text-[14vw] lg:text-[13vw] font-black tracking-tighter tabular-nums leading-none flex items-center justify-center relative z-10 cursor-pointer"
               title="雙擊可複製當前時間"
+              onDoubleClick={() => {
+                navigator.clipboard.writeText(`${formattedClock.hrs}:${formattedClock.mins}:${formattedClock.secs}`);
+                playChime(1000, 'sine', 0.05);
+              }}
             >
               <span>{formattedClock.hrs}</span>
-              <span className="text-blue-500 dark:text-blue-400 animate-pulse-slow mx-1">:</span>
+              <span className="text-blue-500 dark:text-blue-400 mx-1.5">:</span>
               <span>{formattedClock.mins}</span>
-              <span className="text-blue-500 dark:text-blue-400 animate-pulse-slow mx-1">:</span>
-              <span className={`${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'} font-semibold text-[12vw] sm:text-[11vw]`}>
-                {formattedClock.secs}
-              </span>
+              <span className="text-blue-500 dark:text-blue-400 mx-1.5">:</span>
+              <span>{formattedClock.secs}</span>
             </div>
-
-            {/* Timeline Progress bar integrated inside the clock module */}
-            <div id="exam_progress_tracker" className="w-full max-w-4xl mt-8 relative z-10 block">
-              <div className="flex items-center justify-between text-xs sm:text-sm font-semibold font-mono mb-2 text-zinc-500">
-                <span>開始：{startTime}</span>
-                
-                <span className={`px-2 py-0.5 rounded-md ${
-                  metrics.status === 'ended' 
-                    ? 'text-red-550 bg-red-550/10' 
-                    : isTenMinsAlertActive 
-                      ? 'text-red-500' 
-                      : 'text-blue-500 dark:text-blue-400 bg-blue-550/15'
-                }`}>
-                  {metrics.status === 'not-started' && `距離考試開始還有 ${metrics.remainingTimeMins} 分鐘`}
-                  {metrics.status === 'running' && `已進行 ${metrics.timeFromStartMins} 分鐘，剩餘 ${metrics.remainingTimeMins} 分鐘`}
-                  {metrics.status === 'ended' && "考試已結束！請立即停筆"}
-                </span>
-
-                <span>結束：{endTime}</span>
-              </div>
-
-              {/* Bento styled timeline progress */}
-              <div className={`w-full h-3 sm:h-4 rounded-full overflow-hidden border ${
-                theme === 'dark' ? 'bg-zinc-950 border-white/5' : 'bg-zinc-150 border-zinc-200'
-              }`}>
-                <div 
-                  className={`h-full transition-all duration-1000 ${
-                    metrics.status === 'ended' 
-                      ? 'bg-red-550' 
-                      : isTenMinsAlertActive 
-                        ? 'bg-red-550 animate-pulse' 
-                        : metrics.status === 'not-started'
-                          ? 'bg-zinc-650'
-                          : 'bg-blue-600'
-                  }`}
-                  style={{ width: `${metrics.progressPercent}%` }}
-                ></div>
-              </div>
-            </div>
-
           </div>
 
-
-
-
-
-
-          {/* BENTO BLOCK 3: BOTTOM GRID SYSTEM (3 COLS) */}
-          <div id="exam_information_matrix" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 w-full max-w-7xl mx-auto">
+          {/* HIGH CONTRAST EXAM INFORMATION MATRIX & ATTENDANCE & IN-PLACE REMINDERS */}
+          <div id="exam_information_matrix" className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-7xl mx-auto mb-2 shrink-0">
             
-            {/* STATS BENTO TILE - Column 1 */}
+            {/* COLUMN 1: EXAM BASIC INFORMATION */}
             <div 
-              id="info_box_attendance" 
-              className={`rounded-[2rem] p-8 border flex flex-col justify-between transition-all duration-300 ${
+              id="info_box_exam_details" 
+              className={`rounded-[1.5rem] p-5 border flex flex-col justify-between transition-all duration-300 ${
                 theme === 'dark' 
                   ? 'bg-[#111111] border-white/5 text-white' 
-                  : 'bg-white border-zinc-200 shadow-sm text-zinc-900'
+                  : 'bg-white border-zinc-250 shadow-sm text-zinc-950'
               }`}
             >
-              <div>
-                <span className="text-zinc-500 font-bold uppercase tracking-widest text-xs sm:text-sm block mb-4">
-                  ATTENDANCE 人數 STATISTICS
-                </span>
-                
-                <div className="flex items-baseline gap-2">
-                  <span className="text-7xl font-sans font-black tracking-tight text-blue-500 dark:text-blue-400">
-                    {actualCount}
-                  </span>
-                  <span className="text-3xl text-zinc-600 font-light">/</span>
-                  <span className="text-2xl sm:text-3xl text-zinc-500 font-semibold">
-                    {expectedCount}
-                  </span>
+              <div className="space-y-2.5 font-sans">
+                <div className="flex items-center space-x-2 pb-1 border-b border-zinc-500/10">
+                  <span className="text-base font-black text-blue-500 dark:text-blue-400">📄 考試項目</span>
+                </div>
+                <div className="text-sm sm:text-base">
+                  <span className="text-zinc-550 dark:text-zinc-300 font-bold mr-1">名稱：</span>
+                  <span className="font-extrabold text-zinc-900 dark:text-white">{examName}</span>
+                </div>
+                <div className="text-sm sm:text-base">
+                  <span className="text-zinc-550 dark:text-zinc-300 font-bold mr-1">科目：</span>
+                  <span className="font-extrabold text-zinc-900 dark:text-white">{subject}</span>
+                </div>
+                <div className="text-sm sm:text-base">
+                  <span className="text-zinc-550 dark:text-zinc-300 font-bold mr-1">時間：</span>
+                  <span className="font-extrabold text-blue-600 dark:text-blue-400 font-mono">{startTime} 至 {endTime}</span>
                 </div>
               </div>
 
-              {/* Extra micro labels indicating breakdown */}
-              <div className="mt-4 pt-4 border-t border-zinc-500/10 flex items-center justify-between text-xs font-mono text-zinc-500">
-                <span>缺席：<strong className={absentCount > 0 ? "text-red-500" : ""}>{absentCount}</strong> 人</span>
-                <span>出席率：<strong>{Math.round((actualCount / (expectedCount || 1)) * 100)}%</strong></span>
-              </div>
-            </div>
-
-
-
-
-
-
-            {/* REMINDER BENTO TILE - Columns 2 & 3 */}
-            <div 
-              id="alerts_and_reminders_container" 
-              className={`col-span-1 md:col-span-2 rounded-[2rem] p-8 border flex flex-col justify-center relative transition-all duration-500 ${
-                isTenMinsAlertActive 
-                  ? 'bg-red-950/40 border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
-                  : theme === 'dark'
-                    ? 'bg-[#111111] border-white/5 text-white'
-                    : 'bg-white border-zinc-200 shadow-sm text-zinc-900'
-              }`}
-            >
-              <div className="flex items-center space-x-2 mb-4">
-                <Bell className={`w-5 h-5 ${isTenMinsAlertActive ? 'text-red-400' : 'text-zinc-400'}`} />
-                <span className={`${isTenMinsAlertActive ? 'text-red-400' : 'text-zinc-500'} font-bold uppercase tracking-widest text-xs sm:text-sm`}>
-                  REMINDER 提醒專區
+              {/* Status Alert Indicator */}
+              <div className="mt-3 pt-2.5 border-t border-zinc-500/10 flex items-center justify-between text-xs sm:text-sm font-black font-mono">
+                <span className="text-zinc-500">進度狀態：</span>
+                <span className={`px-2 py-0.5 rounded-lg ${
+                  metrics.status === 'ended' 
+                    ? 'text-red-500 bg-red-550/10' 
+                    : isTenMinsAlertActive 
+                      ? 'text-red-500 animate-pulse' 
+                      : 'text-blue-650 dark:text-blue-400 bg-blue-500/10'
+                }`}>
+                  {metrics.status === 'not-started' && `尚未開始`}
+                  {metrics.status === 'running' && `已進行 ${metrics.timeFromStartMins} 分 / 剩 ${metrics.remainingTimeMins} 分`}
+                  {metrics.status === 'ended' && "考試已結束"}
                 </span>
               </div>
+            </div>
 
-              <p 
-                className={`text-lg sm:text-xl md:text-2xl font-semibold leading-relaxed tracking-wide ${
-                  isTenMinsAlertActive 
-                    ? 'text-red-500 font-extrabold' 
-                    : theme === 'dark' 
-                      ? 'text-zinc-200' 
-                      : 'text-[#1e293b]'
-                }`}
-              >
-                {reminders ? reminders : '請冷靜作答，並注意時間分配。祝各位考生作答順利。'}
-              </p>
+            {/* COLUMN 2: ATTENDANCE BLOCK WITH DIRECT INTERACTIVE +/- BUTTONS */}
+            <div 
+              id="info_box_attendance_direct" 
+              className={`rounded-[1.5rem] p-5 border flex flex-col justify-between transition-all duration-300 ${
+                theme === 'dark' 
+                  ? 'bg-[#111111] border-white/5 text-white' 
+                  : 'bg-white border-zinc-250 shadow-sm text-zinc-950'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 pb-1 border-b border-zinc-500/10">
+                  <span className="text-base font-black text-blue-500 dark:text-blue-400">👥 應到與實到人數</span>
+                </div>
+                
+                {/* Expected & Actual display */}
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-zinc-150 dark:bg-zinc-900/40 p-2 rounded-xl border border-zinc-300 dark:border-white/5">
+                    <span className="text-xs text-zinc-550 dark:text-zinc-300 font-bold block">應到人數</span>
+                    <span className="text-xl sm:text-2xl font-black font-mono text-zinc-900 dark:text-white">{expectedCount} <span className="text-xs font-bold text-zinc-500">人</span></span>
+                  </div>
+
+                  <div className="bg-zinc-150 dark:bg-zinc-900/40 p-2 rounded-xl border border-zinc-300 dark:border-white/5 flex flex-col justify-between relative">
+                    <span className="text-xs text-zinc-550 dark:text-zinc-300 font-bold block">實到人數</span>
+                    <div className="flex items-center justify-center space-x-2 mt-1">
+                      <button
+                        onClick={() => {
+                          setActualCount(prev => Math.max(0, prev - 1));
+                          playChime(370, 'sine', 0.05);
+                        }}
+                        className="w-6 h-6 flex items-center justify-center bg-zinc-300 dark:bg-zinc-800 hover:bg-zinc-400 dark:hover:bg-zinc-700 hover:text-white rounded-md border border-zinc-400/20 active:scale-90 transition-all cursor-pointer text-zinc-800 dark:text-white text-xs font-black"
+                        title="扣除實到人數"
+                      >
+                        -
+                      </button>
+                      <span className="text-base sm:text-lg font-black font-mono text-blue-600 dark:text-blue-400">
+                        {actualCount}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setActualCount(prev => Math.min(expectedCount, prev + 1));
+                          playChime(490, 'sine', 0.05);
+                        }}
+                        className="w-6 h-6 flex items-center justify-center bg-zinc-300 dark:bg-zinc-800 hover:bg-zinc-400 dark:hover:bg-zinc-700 hover:text-white rounded-md border border-zinc-400/20 active:scale-90 transition-all cursor-pointer text-zinc-800 dark:text-white text-xs font-black"
+                        title="增加實到人數"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attendance breakdown percentage and absent sum */}
+              <div className="mt-3 pt-2.5 border-t border-zinc-500/10 flex items-center justify-between text-xs sm:text-sm font-black font-mono">
+                <span className="text-zinc-500">缺席人數：<strong className={absentCount > 0 ? "text-red-500 font-black" : "text-zinc-900 dark:text-white font-extrabold"}>{absentCount} 人</strong></span>
+                <span className="text-zinc-500">出席率：<strong className="text-zinc-900 dark:text-white font-extrabold">{Math.round((actualCount / (expectedCount || 1)) * 100)}%</strong></span>
+              </div>
+            </div>
+
+            {/* COLUMN 3: IN-PLACE REMINDERS DIRECTLY TYPABLE */}
+            <div 
+              id="alerts_and_reminders_container" 
+              className={`rounded-[1.5rem] p-5 border flex flex-col justify-between relative transition-all duration-500 ${
+                isTenMinsAlertActive 
+                  ? 'bg-red-950/20 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
+                  : theme === 'dark'
+                    ? 'bg-[#111111] border-white/5 text-white'
+                    : 'bg-white border-zinc-250 shadow-sm text-zinc-950'
+              }`}
+            >
+              <div className="flex flex-col flex-grow h-full justify-between">
+                <div className="flex items-center space-x-2 pb-1 border-b border-zinc-500/10 mb-2">
+                  <Bell className={`w-4 h-4 ${isTenMinsAlertActive ? 'text-red-400' : 'text-zinc-400'}`} />
+                  <span className="text-base font-black text-blue-500 dark:text-blue-400">📢 考場提醒事項 (可直接在此輸入)</span>
+                </div>
+
+                <textarea
+                  id="direct_reminders_textarea"
+                  value={reminders}
+                  onChange={(e) => {
+                    setReminders(e.target.value);
+                  }}
+                  className={`w-full flex-grow bg-transparent border-0 resize-none outline-none focus:ring-0 focus:outline-none p-1 text-sm sm:text-base font-bold leading-relaxed tracking-wide ${
+                    isTenMinsAlertActive 
+                      ? 'text-red-500 font-extrabold' 
+                      : theme === 'dark' 
+                        ? 'text-zinc-200' 
+                        : 'text-[#1e293b]'
+                  }`}
+                  placeholder="可在此直接點擊並編輯考場提醒與公告..."
+                />
+              </div>
             </div>
 
           </div>
-
-          {/* DISCRETE BOTTOM INSTRUCTIONS SHORTCUT */}
-          <div className="mt-auto pt-6 text-center text-xs text-zinc-500 font-mono tracking-wide">
-            按鍵盤 <kbd className="px-2 py-0.5 rounded bg-zinc-800/40 border border-zinc-700/50">M</kbd> 鍵可快速召喚教師控制面板 • 點擊右下角齒輪亦可操作
-          </div>
-
-
-
-
-
 
           {/* FLOATING GEAR TRIGGER ICON */}
           <button
@@ -795,187 +826,89 @@ export default function App() {
               setIsControlOpen(!isControlOpen);
               playChime(700, 'sine', 0.08);
             }}
-            className="fixed bottom-6 right-6 p-4 rounded-full bg-zinc-900/90 backdrop-blur-md border border-white/10 text-white hover:text-blue-400 hover:scale-110 cursor-pointer shadow-2xl transition-all duration-300 hover:rotate-45 group z-40"
-            title="開啟教師控制台"
+            className="fixed bottom-6 right-6 p-3 rounded-full bg-zinc-900/95 backdrop-blur-md border border-white/10 text-white hover:text-blue-400 hover:scale-110 cursor-pointer shadow-2xl transition-all duration-300 hover:rotate-45 group z-40"
+            title="調整考試結束時間"
           >
-            <Settings className="w-7 h-7" />
+            <Settings className="w-5 h-5" />
           </button>
 
-          {/* TEACHER HIDDEN CONTROL PANEL: SLIDE UP / OVERLAY (REALLY INTUITIVE & HANDY) */}
+          {/* SIMPLIFIED SMALL TEACHER CONTROLS DIALOG (BOTTOM-RIGHT COMPACT MODE) */}
           {isControlOpen && (
             <div 
-              id="teacher_control_overlay" 
-              className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300"
-              onClick={() => setIsControlOpen(false)}
+              id="compact_time_control_popover"
+              className={`fixed bottom-22 right-6 w-72 rounded-2xl p-4 shadow-2xl border z-50 flex flex-col gap-3 font-sans ${
+                theme === 'dark'
+                  ? 'bg-[#141414] border-white/15 text-white'
+                  : 'bg-white border-zinc-350 text-zinc-950 shadow-2xl'
+              }`}
             >
-              {/* Box Modal */}
-              <div 
-                id="teacher_control_modal"
-                className="w-full max-w-lg bg-[#111111] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl text-white relative z-50 overflow-y-auto max-h-[90vh]"
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking modal content
-              >
-                
-                {/* Status indicators */}
-                <div className="bg-zinc-950/60 border border-white/5 rounded-xl p-3.5 mb-5 text-sm text-zinc-400 flex items-center justify-between font-mono">
-                  <span>科目：{subject}</span>
-                  <span className="text-blue-400 font-bold">{metrics.totalDurationMins} 分鐘 總時數</span>
+              <div className="flex items-center justify-between border-b border-zinc-500/10 pb-2">
+                <span className="font-black text-sm flex items-center gap-1.5 text-blue-500 dark:text-blue-400">
+                  <Clock className="w-4 h-4" /> 變更結束時間
+                </span>
+                <button 
+                  onClick={() => setIsControlOpen(false)}
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-250 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Time Adjustment Action Row */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="edit_end_time_input"
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => {
+                      setEndTime(e.target.value);
+                    }}
+                    className={`flex-grow border rounded-xl py-2 px-3 text-sm font-semibold font-mono outline-none text-center ${
+                      theme === 'dark' 
+                        ? 'bg-zinc-900 border-white/10 text-white' 
+                        : 'bg-zinc-100 border-zinc-300 text-zinc-950'
+                    }`}
+                  />
                 </div>
 
-                {/* Form controls */}
-                <div className="space-y-4">
-                  
-                  {/* Change Subject name */}
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
-                      修改科目名稱
-                    </label>
-                    <input
-                      id="edit_subject_name"
-                      type="text"
-                      className="bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-sans"
-                      value={editSubject}
-                      onChange={(e) => setEditSubject(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Change End Time */}
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
-                      變更結束時間 (HH:MM)
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        id="edit_end_time"
-                        type="time"
-                        className="col-span-2 bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                        value={editEndTime}
-                        onChange={(e) => setEditEndTime(e.target.value)}
-                      />
-                      {/* Plus 10 mins shortcut */}
-                      <button
-                        id="plus_10_mins_btn"
-                        type="button"
-                        onClick={() => {
-                          const [h, m] = editEndTime.split(':').map(Number);
-                          const dateObj = new Date();
-                          dateObj.setHours(h, m, 0, 0);
-                          const newDateObj = new Date(dateObj.getTime() + 10 * 60 * 1000);
-                          const newTimeStr = `${String(newDateObj.getHours()).padStart(2, '0')}:${String(newDateObj.getMinutes()).padStart(2, '0')}`;
-                          setEditEndTime(newTimeStr);
-                          playChime(660, 'sine', 0.05);
-                        }}
-                        className="bg-zinc-800 hover:bg-zinc-700 border border-white/5 text-xs font-mono font-bold rounded-xl text-zinc-250 transition-all cursor-pointer"
-                        title="增加 10 分鐘"
-                      >
-                        +10M
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Modify present/absent count directly */}
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
-                      變更實到人數 (總應到: {expectedCount} 人)
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        id="dec_actual_btn"
-                        type="button"
-                        onClick={() => {
-                          setActualCount(prev => Math.max(0, prev - 1));
-                          playChime(370, 'sine', 0.05);
-                        }}
-                        className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 border border-white/5 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      
-                      <div className="flex-grow text-center bg-zinc-950/60 p-2 rounded-xl border border-white/5 font-mono">
-                        <span className="text-[10px] text-zinc-500 block">與總應到自動同步</span>
-                        <span className="text-xl font-bold text-emerald-400">{actualCount} 人</span>
-                      </div>
-
-                      <button
-                        id="inc_actual_btn"
-                        type="button"
-                        onClick={() => {
-                          setActualCount(prev => Math.min(expectedCount, prev + 1));
-                          playChime(490, 'sine', 0.05);
-                        }}
-                        className="p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-300 border border-white/5 active:scale-95 transition-all cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 自訂提醒事項 Custom Reminder Text Area */}
-                  <div className="space-y-1.5 flex flex-col">
-                    <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">
-                      自訂提醒事項
-                    </label>
-                    <textarea
-                      id="edit_reminders_text"
-                      rows={3}
-                      className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-550 transition-all font-sans text-xs leading-relaxed resize-none"
-                      value={editReminders}
-                      onChange={(e) => setEditReminders(e.target.value)}
-                      placeholder="輸入欲更新之公告或法規..."
-                    />
-                  </div>
-
-                </div>
-
-                {/* Quick actions panel */}
-                <div id="quick_panel_actions" className="mt-6 pt-4 border-t border-white/5 space-y-2.5">
-                  <span className="block text-[10px] font-bold text-zinc-500 tracking-wider uppercase">
-                    快速提醒廣播面板
-                  </span>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    {/* Ten Minutes remaining shortcut */}
-                    <button
-                      id="action_ten_remaining_btn"
-                      onClick={() => {
-                        triggerRemaining10Mins();
-                        setIsControlOpen(false); // Close to show results instantly
-                      }}
-                      className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center space-x-1 bg-red-650 hover:bg-red-500 border-none text-white`}
-                    >
-                      <span>剩餘 10 分鐘廣播</span>
-                    </button>
-
-                    {/* Clear custom warning alarms */}
-                    <button
-                      id="action_clear_all_alarms"
-                      onClick={() => {
-                        clearTenMinsAlert();
-                        playChime(370, 'sine', 0.1);
-                        setIsControlOpen(false);
-                      }}
-                      className="py-3 px-4 text-xs font-medium rounded-xl border border-white/5 text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 transition-all cursor-pointer"
-                    >
-                      ❌ 清除廣播警報
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Apply Actions Footer */}
-                <div className="mt-6 pt-4 border-[#222222] border-t flex items-center justify-between space-x-3">
-                  <span className="text-[10px] text-zinc-500 leading-tight">
-                    💡 點擊儲存後，主畫面之投影數據與提醒專區將立即連動變更。
-                  </span>
-                  
+                <div className="grid grid-cols-2 gap-2 mt-1">
                   <button
-                    id="submit_edit_btn"
-                    onClick={handleApplyChanges}
-                    className="flex items-center space-x-1.5 px-6 py-3 font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-md cursor-pointer text-sm"
+                    id="plus_5_mins_direct_btn"
+                    onClick={() => {
+                      const [h, m] = endTime.split(':').map(Number);
+                      const dObj = new Date();
+                      dObj.setHours(h, m, 0, 0);
+                      const newD = new Date(dObj.getTime() + 5 * 60 * 1000);
+                      const finalTime = `${String(newD.getHours()).padStart(2, '0')}:${String(newD.getMinutes()).padStart(2, '0')}`;
+                      setEndTime(finalTime);
+                      playChime(660, 'sine', 0.05);
+                    }}
+                    className="py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-xs transition-all cursor-pointer active:scale-95"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>儲存並即時更新</span>
+                    +5 分鐘
+                  </button>
+                  <button
+                    id="plus_10_mins_direct_btn"
+                    onClick={() => {
+                      const [h, m] = endTime.split(':').map(Number);
+                      const dObj = new Date();
+                      dObj.setHours(h, m, 0, 0);
+                      const newD = new Date(dObj.getTime() + 10 * 60 * 1000);
+                      const finalTime = `${String(newD.getHours()).padStart(2, '0')}:${String(newD.getMinutes()).padStart(2, '0')}`;
+                      setEndTime(finalTime);
+                      playChime(660, 'sine', 0.05);
+                    }}
+                    className="py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-xs transition-all cursor-pointer active:scale-95"
+                  >
+                    +10 分鐘
                   </button>
                 </div>
+              </div>
 
+              {/* Footer indicator */}
+              <div className="text-[10px] text-zinc-500 text-center leading-tight pt-1">
+                變更結束時間將即時同步。
               </div>
             </div>
           )}
